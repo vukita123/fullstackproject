@@ -22,7 +22,7 @@ const main = async () => {
             validate: false,
 
         }),
-        context: () => ({ em: orm.em});
+        context: () => ({ em: orm.em})
     })
     await apolloServer.start();
     apolloServer.applyMiddleware({ app }); 
