@@ -2,6 +2,7 @@ import { Arg, Ctx, Field, InputType, Mutation, ObjectType, Query, Resolver } fro
 import { User } from "../entities/User";
 import { MyContext } from "../types";
 import {argon2} from "argon2";
+import { formatApolloErrors } from "apollo-server-errors";
 
 @InputType()//basically an object
 class UsernamePasswordInput{
@@ -31,21 +32,53 @@ class UserResponse{
 
 @Resolver()
 export class UserResolver{
-    @Mutation(() => User)
+    @Mutation(() => UserResponse)
     async register(
         @Arg('options' , () => UsernamePasswordInput) options: UsernamePasswordInput,
         @Ctx() {em}: MyContext
-    ){
+    ): Promise<UserResponse>{
+        if (options.username.length <= 2){
+            return{
+                errors: [{
+                     field: "username",
+                     message: "length can't be shorter than 2"
+
+                }]
+            }
+        }
+        if (options.password.length <= 2){
+            return{
+                errors: [{
+                     field: "password",
+                     message: "length must be longer than 2"
+
+                }]
+            }
+        }
         //const hashedPassword = await argon2.hash(options.password);
         const user = em.create(User, {username: options.username, password: options.password});
-        await em.persistAndFlush( user);
-        return user;
+        try{
+            await em.persistAndFlush( user);
+        } catch(err){
+            if(err.code === "23505"){
+                return{
+                    errors:[
+                        {
+                        field: "username",
+                        message: "username already taken"
+                        }
+                    ]
+                }
+            }
+            //console.log("message: ", err.message );
+        }
+        return {user};
     }
 
     @Mutation(() => UserResponse)
     async login( 
         @Arg('options' , () => UsernamePasswordInput) options: UsernamePasswordInput,
-        @Ctx() {em}: MyContext
+        @Ctx() {em, req}: MyContext
     ): Promise<UserResponse>{
         //const hashedPassword = await argon2.hash(options.password);
         const user = await em.findOne(User, {username: options.username})
@@ -58,13 +91,19 @@ export class UserResolver{
                 ],
             };
         }
-        if(!(user.password == options.password){
-            errors: [{
+        if(!(user.password == options.password)){
+            return{
+            errors: [
+                {
                 field: 'username',
                 message: "incorrect password"
-            },
-            ]
-        })
+                },
+            ],
+        }
+    }
+
+        req.session!.UserID = user.id;
+
         return{
             user,
         }
