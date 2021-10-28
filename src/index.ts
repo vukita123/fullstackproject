@@ -17,6 +17,7 @@ import { MyContext } from "./types";
 import { ApolloServerPluginLandingPageGraphQLPlayground } from "apollo-server-core";
 
 
+
 const main = async () => {
     const orm = await MikroORM.init(microConfig);
     await orm.getMigrator().up();
@@ -25,6 +26,13 @@ const main = async () => {
 
     const RedisStore = connectRedis(session);
     const redisClient = redis.createClient();
+
+    app.use(
+        cors({
+          credentials: true,
+          origin: "https://studio.apollographql.com",
+        })
+      );
 
     app.use(
         session({
@@ -42,6 +50,8 @@ const main = async () => {
             saveUninitialized: false,
             secret: "asnkdjvnasjaksklasdf",
             resave: false,
+        // Access-Control-Allow-Origin: https://studio.apollographql.com,
+        // Access-Control-Allow-Credentials: true
         })
     )
 
@@ -52,9 +62,11 @@ const main = async () => {
             resolvers: [HelloResolver, PostResolver, UserResolver] ,
             validate: false,
         }),
+        //credentials: include,
         plugins: [
             ApolloServerPluginLandingPageGraphQLPlayground({
               // options
+              //'request.credentials': 'include'
             })
         ],
         context: ({ res, req }) => ({ em: orm.em, res, req})
@@ -65,6 +77,9 @@ const main = async () => {
     app.get("/",(_,res)=>{
         res.send("hello world");
     })
+
+
+
     app.listen(4000,() => {
         console.log("server started on localhost:4000");
     })
@@ -75,3 +90,7 @@ main().catch((err) =>{
 
 
 console.log("hello world")
+
+function cors(arg0: { credentials: boolean; origin: string; }): any {
+    throw new Error("Function not implemented.");
+}
